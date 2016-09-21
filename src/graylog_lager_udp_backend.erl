@@ -19,9 +19,10 @@
 -define(DEFAULT_GELF_FORMATTER, graylog_lager_gelf_formatter).
 
 init(Config)->
+    ApplicationHost = graylog_lager_utils:hostname(),
     Level = graylog_lager_utils:lookup(level, Config, debug),
     Formatter = graylog_lager_utils:lookup(formatter, Config, ?DEFAULT_GELF_FORMATTER),
-    FormatConfig = graylog_lager_utils:lookup(format_config, Config, []),
+    FormatConfig = [{application_host, ApplicationHost} | graylog_lager_utils:lookup(format_config, Config, [])],
     InetFamily = graylog_lager_utils:lookup(inet_family, Config, inet),
     Host = graylog_lager_utils:lookup(host, Config),
     Port = graylog_lager_utils:lookup(port, Config),
@@ -63,13 +64,13 @@ handle_call(_Request, State) ->
 handle_event({log, MessageInner}, #state{level=L, name = Name, formatter=Formatter, format_config=FormatConfig} = State) ->
     case lager_util:is_loggable(MessageInner, L, Name) of
         true ->
-            Msg = Formatter:format(MessageInner,FormatConfig),
+            Msg = Formatter:format(MessageInner, FormatConfig),
 
             case is_binary(Msg) of
                 true ->
                     send(State, Msg, byte_size(Msg));
                 _ ->
-                    ?INT_LOG(error, "hexed message. json encode failed: ~p", [graylog_lager_utils:to_hex(MessageInner)])
+                    ?INT_LOG(error, "hexed message. json encode failed: ~p", [mochihex:to_hex(term_to_binary(MessageInner))])
             end,
 
             {ok, State};

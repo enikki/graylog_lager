@@ -9,11 +9,13 @@ format(Message, Config, _Colors) ->
     format(Message, Config).
 
 format(Message, Config) ->
-    case jsone:try_encode(get_raw_data(Message, Config)) of
-        {ok, JsonPayload} ->
-            do_compression(JsonPayload, graylog_lager_utils:lookup(compression, Config, disabled));
-        UnexpectedMessage ->
-            UnexpectedMessage
+    RawData = get_raw_data(Message, Config),
+    try
+        JsonPayload = jiffy:encode({RawData}),
+        do_compression(JsonPayload, graylog_lager_utils:lookup(compression, Config, disabled))
+    catch
+        _:_ ->
+            RawData
     end.
 
 get_raw_data(Message, Config) ->
@@ -22,7 +24,7 @@ get_raw_data(Message, Config) ->
         {level, graylog_lager_utils:severity2int(lager_msg:severity(Message))},
         {short_message, graylog_lager_utils:term2bin(lager_msg:message(Message))},
         {timestamp, graylog_lager_utils:unix_timestamp(lager_msg:timestamp(Message))},
-        {host, graylog_lager_utils:hostname()} |
+        {host, proplists:get_value(application_host, Config)} |
         get_metadata(Message)
     ],
 
