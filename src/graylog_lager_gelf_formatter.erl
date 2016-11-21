@@ -19,13 +19,16 @@ format(Message, Config) ->
     end.
 
 get_raw_data(Message, Config) ->
+    Meta = get_metadata(Message),
+    Pid = proplists:get_value(<<"_pid">>, Meta),
+    Meta1 = [{<<"_erlang_pid">>, Pid} | proplists:delete(<<"_pid">>, Meta)],
     BaseMessage = [
         {version, ?GELF_VERSION},
         {level, graylog_lager_utils:severity2int(lager_msg:severity(Message))},
         {short_message, graylog_lager_utils:term2bin(lager_msg:message(Message))},
         {timestamp, graylog_lager_utils:unix_timestamp(lager_msg:timestamp(Message))},
         {host, proplists:get_value(application_host, Config)} |
-        get_metadata(Message)
+                   Meta1
     ],
 
     case graylog_lager_utils:lookup(extra_fields, Config) of
